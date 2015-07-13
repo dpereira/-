@@ -1,9 +1,12 @@
 MAYHEM
 ======
 
-__Maven__ has very limited capabilities regarding 
-incrementally building projects, especially
-regarding in the way it deals with cross module
-dependencies on projects which have complex structure.
+__Maven__ has limited capabilities for 
+incrementally building projects. 
 
-__Mayhem__ is a prototype to try to address this issue.
+This is parlty due to the fact that it does not
+track inter-module dependencies between 
+the modules that compose complex projects.
+
+__Mayhem__'s purpose is to prototype a solution 
+that addresses this issue.
