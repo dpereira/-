@@ -1,0 +1,3 @@
+[submodule "mayhem/src/external/takari-experiments"]
+	path = mayhem/src/external/takari-experiments
+	url = git@github.com:dpereira/takari-experiments.git
