@@ -9,4 +9,6 @@ print("SUMMARY\n")
 print("List of pom files scanned:")
 print('\n'.join(pom_list))
 print("Dependency relationships scanned:\n")
-(print(p, d) for p, d in dependency_tree)
+for p, d in dependency_tree:
+  print(p, ":")
+  print(d, "\n-------------------------------------------")
