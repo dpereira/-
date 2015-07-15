@@ -14,12 +14,10 @@ def scan_project(project_path):
     matching_files = filter(lambda f: tuple((m for m in _default_project_file_matchers if m.match(f))), files)
     project_files.update((os.path.join(path, f) for f in matching_files))
     
-    #print(path, directories, files, tuple(matching_files))
-
   return sorted(project_files, key = lambda i: len(i), reverse = True)
 
 def scan_modules(module_paths):
-  return [scan_module(m) for m in module_paths]
+  return _build_graph([scan_module(m) for m in module_paths])
 
 def scan_module(module_path):
   pom = open(module_path, 'r')
@@ -27,52 +25,42 @@ def scan_module(module_path):
   objectify.deannotate(xml, cleanup_namespaces = True)
   pom.close()
 
-
   m = dict(xml.nsmap)
   m['d'] = m[None]
   del m[None]
 
-  print(m)
-
+  # extracts from a pom xml tree  
+  # the data of interest
   ex = lambda e: (
+    # module id
     e.findtext("d:groupId", namespaces = m), 
     e.findtext("d:artifactId", namespaces = m), 
+    # module type
     e.findtext("d:packaging", namespaces = m),
-    e.xpath("d:dependencies/*", namespaces = m)
+    # dependencies
+    list(ex(d) for d in e.xpath("d:dependencies/*", namespaces = m)) + 
+    list(ex(p) for p in e.xpath("d:parent", namespaces = m))
   )
 
   group, artifact, packaging, dependencies = ex(xml)
-  dependencies = tuple(ex(d) for d in dependencies)
 
-  print(group, artifact, packaging, dependencies)
+  return group, artifact, packaging, dependencies, os.path.dirname(module_path)
 
-  return extract_dependencies(dependencies)
+def _build_graph(data):
+  """
+  Returns a data structure better
+  suited to represent the graph 
+  structure of the data.
 
-
-    
-
-#  tmp = open('/tmp/subprocess.%s' % time.time(), "x+")
-#  subprocess.call(("mvn", "dependency:tree", "-f", module_path), stdout = tmp, stderr = subprocess.STDOUT)
-#  tmp.seek(0)
-#  contents = tmp.read()
-#  tmp.close()
-#  return extract_dependencies(contents)
-
-def extract_dependencies(output):
-  deployable_packages = ('war', 'ear')
-  dependency_packages = ('jar','pom')
-
-#def extract_dependencies(output):
-#  dependency_prefix_pattern = '\[INFO\]\s'
-#  dependency_patterns = ('\+(.*)','\|(.*)',"\\\\(.*)")
-#  dependency_matchers = tuple(re.compile(dependency_prefix_pattern + pattern) for pattern in dependency_patterns)
-#  dependencies = []
-#  for l in output.split('\n'):
-#    for matcher in dependency_matchers:
-#        m = matcher.match(l)
-#        if m:
-#          dependencies.append(m.group(1))
-#          break
-#
-#  return dependencies
- 
+  """
+  return dict(
+    (
+      ("%s.%s" % (group, artifact)), 
+      {  
+        'packaging': packaging, 
+        'dependencies': tuple(("%s.%s" % (dgroup, dartifact)) for dgroup, dartifact, dpkg, ddeps in dependencies),
+        'path': dirname
+      }
+    )
+    for group, artifact, packaging, dependencies, dirname in data
+  )
