@@ -1,6 +1,7 @@
 from sys import path
 path += ['.']
-from mayhem import scan_project, scan_modules
+from mayhem import scan_project, scan_modules, monitor_module, release_observers
+from time import sleep
 
 def test(path):
   pom_list = scan_project(path)
@@ -16,7 +17,15 @@ def test(path):
     for k2, v2 in v.items():
       print("\t%s: %s" % (k2, v2))
 
-test("./external/takari-experiments/j2ee-simple-takari")
+    monitor_module(k, v, None)
+
+  while True:
+      try:
+          sleep(1)
+      except:
+          release_observers()
+
+#test("./external/takari-experiments/j2ee-simple-takari")
 test("./external/takari-experiments/j2ee-simple")
 
 

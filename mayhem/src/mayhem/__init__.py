@@ -4,6 +4,8 @@ import sys
 import time
 import subprocess
 from lxml import etree, objectify
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 _default_project_file_patterns = ('^pom.xml$',)
 _default_project_file_matchers = tuple((re.compile(p) for p in _default_project_file_patterns))
@@ -64,3 +66,26 @@ def _build_graph(data):
     )
     for group, artifact, packaging, dependencies, dirname in data
   )
+
+def monitor_graph(depependency_graph):
+    pass
+
+_observers = []
+
+class _ModuleEventHandler(FileSystemEventHandler):
+    def on_any_event(event):
+        print("RX: %s" % event)
+
+def monitor_module(module_id, module_info, callback):
+   print("Monitoring %s" % module_info['path'])
+   observer = Observer()
+   observer.schedule(_ModuleEventHandler(), module_info['path'], recursive = True)
+   observer.start()
+   _observers.append(observer)
+
+
+def release_observers():
+    for o in _observers:
+        o.stop()
+    for o in _observers:
+        o.join()
