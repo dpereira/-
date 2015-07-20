@@ -2,25 +2,37 @@ from sys import path
 path += ['.']
 from mayhem import scan_project, scan_modules, monitor_module, release_observers
 from time import sleep
+from functools import lru_cache
 
 module_info = {}
 graph = {}
 
-def rebuild(module, event, handler):
+def scan_outdated(module, event, handler):
   print("Calculating rebuild for change triggered in %s:\n%s" % (module['module_id'], event))
-  module_id = module['module_id']
-  dirty = set([module_id])
+  dirty = set([module['module_id']])
   needs_rebuild = set()
   while dirty:
     needs_rebuild.update(dirty)
     new_dirty = set()
-    for module in dirty:
+    for m in dirty:
       try:
-        new_dirty.update(set(graph[module]))
+          new_dirty.update(graph[m])
       except KeyError:
         pass
     dirty = new_dirty
   print("Modules to be rebuilt:\n%s" % needs_rebuild)
+  return sorted(needs_rebuild, key = dependency_level, reverse = True)
+
+@lru_cache(maxsize = len(graph))
+def dependency_level(m):
+  return 1 + max([dependency_level(d) for d in graph[m]]) if m in graph else 0
+
+def rebuild(module, event, handler):
+  for m in scan_outdated(module, event, handler):
+    if module_info[m]['packaging'] != 'pom':
+      print("REBUILDING %s (%s)" % (m, module_info[m]['packaging']))
+    else:
+      print("SKIPPING %s (%s)" % (m, module_info[m]['packaging']))
 
 def scan(path, callback):
   pom_list = scan_project(path)
