@@ -28,6 +28,7 @@ def dependency_level(m):
 def rebuild(module, event, handler):
   cmd = ""
   for m in scan_outdated(module, event, handler):
+    if module_info[m]['packaging'] != 'pom':
       cmd += run_mvn_cmd(m, module_info[m]) + "; "
   print(cmd)
 
