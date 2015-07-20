@@ -101,7 +101,6 @@ class _ModuleEventHandler(RegexMatchingEventHandler):
     self._callback(module_info, event, self)
 
 def monitor_module(module_id, module_info, callback):
-  print("Monitoring %s" % module_info['path'])
   event_handler = _ModuleEventHandler(module_id, module_info, callback)
 
   for fs_object, recursive in _observable_fs_objects:

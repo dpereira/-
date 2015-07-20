@@ -8,7 +8,6 @@ module_info = {}
 graph = {}
 
 def scan_outdated(module, event, handler):
-  print("Calculating rebuild for change triggered in %s:\n%s" % (module['module_id'], event))
   dirty = set([module['module_id']])
   needs_rebuild = set()
   while dirty:
@@ -20,7 +19,6 @@ def scan_outdated(module, event, handler):
       except KeyError:
         pass
     dirty = new_dirty
-  print("Modules to be rebuilt:\n%s" % needs_rebuild)
   return sorted(needs_rebuild, key = dependency_level, reverse = True)
 
 @lru_cache(maxsize = len(graph))
@@ -28,26 +26,20 @@ def dependency_level(m):
   return 1 + max([dependency_level(d) for d in graph[m]]) if m in graph else 0
 
 def rebuild(module, event, handler):
+  cmd = ""
   for m in scan_outdated(module, event, handler):
-    if module_info[m]['packaging'] != 'pom':
-      print("REBUILDING %s (%s)" % (m, module_info[m]['packaging']))
-    else:
-      print("SKIPPING %s (%s)" % (m, module_info[m]['packaging']))
+      cmd += run_mvn_cmd(m, module_info[m]) + "; "
+  print(cmd)
+
+def run_mvn_cmd(id, module, goals = ['install']):
+  return "; ".join('mvn -f %s/pom.xml %s' % (module['path'], g) for g in goals)
+
 
 def scan(path, callback):
   pom_list = scan_project(path)
   module_info, dependency_graph = scan_modules(pom_list)
 
-  print("SUMMARY\n")
-  print("List of pom files scanned:")
-  print('\n'.join(pom_list))
-  print("Dependency relationships scanned:\n")
-
   for k, v in module_info.items():
-    print("%s:" % k)
-    for k2, v2 in v.items():
-      print("\t%s: %s" % (k2, v2))
-
     monitor_module(k, v, callback)
 
   return module_info, dependency_graph
@@ -61,9 +53,7 @@ def wait():
       release_observers()
       break
 
-#scan("./external/takari-experiments/j2ee-simple-takari")
 module_info, graph = scan("./external/takari-experiments/j2ee-simple", rebuild)
-print("-->%s", graph)
 wait()
 
 
