@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import subprocess  
+import lxml, lxml.etree
 from lxml import etree, objectify
 from watchdog.events import RegexMatchingEventHandler
 from watchdog.observers.polling import PollingObserver
@@ -19,34 +20,49 @@ def scan_project(project_path):
   return sorted(project_files, key = lambda i: len(i), reverse = True)
 
 def scan_modules(module_paths):
-  return _extract_module_info([scan_module(m) for m in module_paths])
+  scanned = []
+
+  for m in module_paths:
+    try: 
+      scanned.append(scan_module(m))
+    except ValueError:
+      continue
+
+  return _extract_module_info(scanned)
 
 def scan_module(module_path):
-  pom = open(module_path, 'r')
-  xml = etree.XML(pom.read().encode())
-  objectify.deannotate(xml, cleanup_namespaces = True)
-  pom.close()
+  try:
+    pom = open(module_path, 'r')
+    xml = etree.XML(pom.read().encode())
+    objectify.deannotate(xml, cleanup_namespaces = True)
+    pom.close()
 
-  m = dict(xml.nsmap)
-  m['d'] = m[None]
-  del m[None]
+    m = dict(xml.nsmap)
+    namespace_prefix = ''
+    if None in m:
+      namespace_prefix = 'd:'
+      m['d'] = m[None]
+      del m[None]
 
-  # extracts from a pom xml tree  
-  # the data of interest
-  ex = lambda e: (
-    # module id
-    e.findtext("d:groupId", namespaces = m), 
-    e.findtext("d:artifactId", namespaces = m), 
-    # module type
-    e.findtext("d:packaging", namespaces = m),
-    # dependencies
-    list(ex(d) for d in e.xpath("d:dependencies/*", namespaces = m)) + 
-    list(ex(p) for p in e.xpath("d:parent", namespaces = m))
-  )
+    # extracts from a pom xml tree  
+    # the data of interest
+    ex = lambda e: (
+      # module id
+      e.findtext("%sgroupId" % namespace_prefix, namespaces = m), 
+      e.findtext("%sartifactId" % namespace_prefix, namespaces = m), 
+      # module type
+      e.findtext("%spackaging" % namespace_prefix, namespaces = m),
+      # dependencies
+      list(ex(d) for d in e.xpath("%sdependencies/*" % namespace_prefix, namespaces = m)) + 
+      list(ex(p) for p in e.xpath("%sparent" % namespace_prefix, namespaces = m))
+    )
 
-  group, artifact, packaging, dependencies = ex(xml)
+    group, artifact, packaging, dependencies = ex(xml)
 
-  return group, artifact, packaging, dependencies, os.path.dirname(module_path)
+    return group, artifact, packaging, dependencies, os.path.dirname(module_path)
+  except lxml.etree.XMLSyntaxError:
+    print("WARNING: %s failed to be parsed, this project will be ignored" % module_path)
+    raise ValueError("%s does not have a valid POM file" % module_path)
 
 def _extract_module_info(data):
   """

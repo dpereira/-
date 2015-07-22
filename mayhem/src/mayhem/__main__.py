@@ -54,7 +54,12 @@ def wait():
       release_observers()
       break
 
-module_info, graph = scan("./external/takari-experiments/j2ee-simple", rebuild)
+module_info, graph = scan("./external/takari-experiments/maven", rebuild)
+
+print("Dependency relationships are:")
+for k,v in graph.items():
+  print("%s <- %s" % (k , v))
+
 wait()
 
 
