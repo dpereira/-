@@ -48,7 +48,8 @@ def scan_module(module_path):
     # the data of interest
     ex = lambda e: (
       # module id
-      e.findtext("%sgroupId" % namespace_prefix, namespaces = m), 
+      e.findtext("%sgroupId" % namespace_prefix, namespaces = m) or 
+      e.findtext("%sparent/%sgroupId" % (namespace_prefix, namespace_prefix), namespaces = m), 
       e.findtext("%sartifactId" % namespace_prefix, namespaces = m), 
       # module type
       e.findtext("%spackaging" % namespace_prefix, namespaces = m),
