@@ -1,13 +1,8 @@
-import os
-import re
-import sys
-import time
-import subprocess  
+import os, re, sys, time, platform
 import lxml, lxml.etree
 from lxml import etree, objectify
 from watchdog.events import RegexMatchingEventHandler
 from watchdog.observers.polling import PollingObserver
-from watchdog.observers.inotify import InotifyObserver
 
 _default_project_file_patterns = ('^pom.xml$',)
 _default_project_file_matchers = tuple((re.compile(p) for p in _default_project_file_patterns))
@@ -122,7 +117,12 @@ def monitor_module(module_id, module_info, callback):
   event_handler = _ModuleEventHandler(module_id, module_info, callback)
 
   for fs_object, recursive in _observable_fs_objects:
-    observer = InotifyObserver()
+    if platform.system() == 'Darwin':
+      from watchdog.observers.fsevents import FSEventsObserver
+      observer = FSEventsObserver()
+    else:
+      from watchdog.observers.inotify import InotifyObserver
+      observer = InotifyObserver()
     observable = os.sep.join((module_info['path'], fs_object))
     if os.path.exists(observable):
       observer.schedule(event_handler, observable, recursive = recursive)

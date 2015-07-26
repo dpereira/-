@@ -1,8 +1,11 @@
 from sys import path
 path += ['.']
 from mayhem import scan_project, scan_modules, monitor_module, release_observers
+from mayhem.zmq_pusher import setup_channel
 from time import sleep
 from functools import lru_cache
+
+channel = setup_channel()
 
 module_info = {}
 graph = {}
@@ -16,7 +19,8 @@ def scan_outdated(module, event, handler):
     for m in dirty:
       try:
           new_dirty.update(graph[m])
-      except KeyError:
+      except KeyError as e:
+        print("KERR: %s" % e)
         pass
     dirty = new_dirty
   return sorted(needs_rebuild, key = dependency_level, reverse = True)
@@ -26,11 +30,14 @@ def dependency_level(m):
   return 1 + max([dependency_level(d) for d in graph[m]]) if m in graph else 0
 
 def rebuild(module, event, handler):
-  cmd = ""
   for m in scan_outdated(module, event, handler):
-    if module_info[m]['packaging'] != 'pom':
-      cmd += run_mvn_cmd(m, module_info[m]) + "; "
-  print(cmd)
+    print("GOT CHANGE:\n\t -> %s" % (module,))
+    channel.send_json({"module": m})
+#  cmd = ""
+#  for m in scan_outdated(module, event, handler):
+#    if module_info[m]['packaging'] != 'pom':
+#      cmd += run_mvn_cmd(m, module_info[m]) + "; "
+#  print(cmd)
 
 def run_mvn_cmd(id, module, goals = ['install']):
   return "; ".join('mvn -f %s/pom.xml %s' % (module['path'], g) for g in goals)
