@@ -30,7 +30,7 @@ def rebuild(module, event, handler):
   for m in scan_outdated(module, event, handler):
     if module_info[m]['packaging'] != 'pom':
       print("Pushing %s ... " % (m,),)
-      #channel.send_json({"module": m})
+      channel.send_json({"module": m})
       print("Pushed.")
 
 def run_mvn_cmd(id, module, goals = ['install']):
