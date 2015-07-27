@@ -17,11 +17,8 @@ def scan_outdated(module, event, handler):
     needs_rebuild.update(dirty)
     new_dirty = set()
     for m in dirty:
-      try:
-          new_dirty.update(graph[m])
-      except KeyError as e:
-        print("KERR: %s" % e)
-        pass
+      if m in graph:
+        new_dirty.update(graph[m])
     dirty = new_dirty
   return sorted(needs_rebuild, key = dependency_level, reverse = True)
 
@@ -31,13 +28,10 @@ def dependency_level(m):
 
 def rebuild(module, event, handler):
   for m in scan_outdated(module, event, handler):
-    print("GOT CHANGE:\n\t -> %s" % (module,))
-    channel.send_json({"module": m})
-#  cmd = ""
-#  for m in scan_outdated(module, event, handler):
-#    if module_info[m]['packaging'] != 'pom':
-#      cmd += run_mvn_cmd(m, module_info[m]) + "; "
-#  print(cmd)
+    if module_info[m]['packaging'] != 'pom':
+      print("Pushing %s ... " % (m,),)
+      #channel.send_json({"module": m})
+      print("Pushed.")
 
 def run_mvn_cmd(id, module, goals = ['install']):
   return "; ".join('mvn -f %s/pom.xml %s' % (module['path'], g) for g in goals)
