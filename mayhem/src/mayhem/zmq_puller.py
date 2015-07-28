@@ -9,7 +9,7 @@ and then perform the build operations using maven
 that are required to update the code.
 
 """
-import zmq
+import zmq, os, subprocess
 
 def main():
   context = zmq.Context(1)
@@ -18,10 +18,17 @@ def main():
 
   try:
     while True:
-      work = frontend.recv_json()
-      print(" -> GOT: %s", (work,))
+      outdated_module = frontend.recv_json()
+      print("-> %s" % (outdated_module,))
+      current = os.getcwd()
+      os.chdir(outdated_module['module']['path'])
+      try:
+        subprocess.check_call(("mvn","install"))
+      except subprocess.CalledProcessError as e:
+        print("Puller %s failing with %s" % (context.underlying, e))
+      os.chdir(current)
   except Exception as e:
-    print("Puller down:\n%s" % (e,))
+    print("Puller %s down:\n%s" % (context.underlying, e))
   finally:
     frontend.close()
     context.term()

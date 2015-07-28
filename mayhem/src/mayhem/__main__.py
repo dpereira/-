@@ -29,8 +29,8 @@ def dependency_level(m):
 def rebuild(module, event, handler):
   for m in scan_outdated(module, event, handler):
     if module_info[m]['packaging'] != 'pom':
-      print("Pushing %s ... " % (m,),)
-      channel.send_json({"module": m})
+      print("Recv: %s %s, pushing %s ... " % (event, handler, m),)
+      channel.send_json({"id": m, "module": module_info[m]})
       print("Pushed.")
 
 def run_mvn_cmd(id, module, goals = ['install']):
