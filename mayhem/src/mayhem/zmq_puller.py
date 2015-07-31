@@ -16,9 +16,14 @@ def main():
   frontend = context.socket(zmq.PULL)
   frontend.connect("tcp://127.0.0.1:66601")
 
+
   try:
+    outdated = set()
     while True:
       outdated_module = frontend.recv_json()
+      if outdated in outdated_module:
+        continue
+      outdated.add(outdated_module)
       print("-> %s" % (outdated_module,))
       current = os.getcwd()
       os.chdir(outdated_module['module']['path'])
