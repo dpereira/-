@@ -16,14 +16,15 @@ def main():
   frontend = context.socket(zmq.PULL)
   frontend.connect("tcp://127.0.0.1:66601")
 
+  sink = context.socket(zmq.PUSH)
+  sink.connect("tcp://127.0.0.1:66602")
 
   try:
-    outdated = set()
     while True:
+      # receive
       outdated_module = frontend.recv_json()
-      if outdated in outdated_module:
-        continue
-      outdated.add(outdated_module)
+
+      # work
       print("-> %s" % (outdated_module,))
       current = os.getcwd()
       os.chdir(outdated_module['module']['path'])
@@ -32,6 +33,9 @@ def main():
       except subprocess.CalledProcessError as e:
         print("Puller %s failing with %s" % (context.underlying, e))
       os.chdir(current)
+
+      # notify done
+      sink.send_json(outdated_module)
   except Exception as e:
     print("Puller %s down:\n%s" % (context.underlying, e))
   finally:

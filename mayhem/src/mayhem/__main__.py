@@ -5,13 +5,14 @@ from mayhem.zmq_pusher import setup_channel
 from time import sleep
 from functools import lru_cache
 
-channel = setup_channel()
+channel, sink = setup_channel()
 
 module_info = {}
 graph = {}
 
-def scan_outdated(module, event, handler):
-  dirty = set([module['module_id']])
+@lru_cache(maxsize = len(graph))
+def scan_outdated(module):
+  dirty = set(graph[module]) if module in graph else set()
   needs_rebuild = set()
   while dirty:
     needs_rebuild.update(dirty)
@@ -27,15 +28,12 @@ def dependency_level(m):
   return 1 + max([dependency_level(d) for d in graph[m]]) if m in graph else 0
 
 def rebuild(module, event, handler):
-  for m in scan_outdated(module, event, handler):
-    if module_info[m]['packaging'] != 'pom':
-      print("Recv: %s %s, pushing %s ... " % (event, handler, m),)
-      channel.send_json({"id": m, "module": module_info[m]})
-      print("Pushed.")
+    print("Pushing %s ... " % (module,),)
+    channel.send_json({"id": module['module_id'], "module": module})
+    print("Pushed.")
 
 def run_mvn_cmd(id, module, goals = ['install']):
   return "; ".join('mvn -f %s/pom.xml %s' % (module['path'], g) for g in goals)
-
 
 def scan(path, callback):
   pom_list = scan_project(path)
@@ -49,13 +47,40 @@ def scan(path, callback):
 def wait():
   while True:
     try:
-      sleep(1)
-    except:
-      print("Monitoring loop broken")
+      read_sink()
+    except Exception as e:
       release_observers()
-      break
+      raise
 
-module_info, graph = scan("./external/takari-experiments/maven", rebuild)
+def read_sink():
+  """
+  Handles worker update messages that are sent
+  to the sink
+  """
+  message = sink.recv_json()
+
+  print("READ SINK: received:\n%s" % (message,))
+
+  if "module" not in message:
+    print("READ SINK: spurious message received, discarding")
+    return
+
+  m = message['module']
+  id = m['module_id']
+  dependents = sorted(graph[id] if id in graph else [] , key = dependency_level, reverse = True)
+  indirect_dependents = set()
+
+  for d in dependents:
+    indirect_dependents.update(scan_outdated(d))
+    if d in indirect_dependents:
+      continue
+    else:
+      module = dict(module_info[d])
+      module['module_id'] = d
+      rebuild(module, None, None)
+
+
+module_info, graph = scan("./external/takari-experiments/j2ee-simple", rebuild)
 
 print("Dependency relationships are:")
 for k,v in graph.items():
