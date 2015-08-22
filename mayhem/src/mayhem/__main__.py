@@ -9,6 +9,7 @@ channel, sink = setup_channel()
 
 module_info = {}
 graph = {}
+under_update = set()
 
 @lru_cache(maxsize = len(graph))
 def scan_outdated(module):
@@ -30,6 +31,7 @@ def dependency_level(m):
 def rebuild(module, event, handler):
     print("Pushing %s ... " % (module,),)
     channel.send_json({"id": module['module_id'], "module": module})
+    under_update.add(module['module_id'])
     print("Pushed.")
 
 def run_mvn_cmd(id, module, goals = ['install']):
@@ -67,8 +69,12 @@ def read_sink():
 
   m = message['module']
   id = m['module_id']
+  under_update.remove(id)
   dependents = sorted(graph[id] if id in graph else [] , key = dependency_level, reverse = True)
   indirect_dependents = set()
+
+  for uu in under_update:
+    indirect_dependents.update(scan_outdated(uu))
 
   for d in dependents:
     indirect_dependents.update(scan_outdated(d))
